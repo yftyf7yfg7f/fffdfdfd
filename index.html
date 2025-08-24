@@ -7406,9 +7406,9 @@ document.head.appendChild(swipeStyle);
 <script>
 (function() {
   const SWIPE_THRESHOLD = 24;
-  const EDGE_OFFSET = 20;   // Android: зона, где системный жест "назад" блокирует свайп
+  const EDGE_OFFSET = 20;
   const ANIM_MS = 250;
-  const MICRO_OFFSET = 10;  // визуальная подсказка для свайпа
+  const MICRO_OFFSET = 10;
 
   let startX = 0, startY = 0;
   let isSwiping = false;
@@ -7416,16 +7416,54 @@ document.head.appendChild(swipeStyle);
   let swipeDirection = null;
   let horizontalDetected = false;
 
+  // Добавляем стили для отключения масштабирования и настройки свайпов
   const swipeStyles = `
-    body, .page-container { touch-action: none; }
-    .page-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
-    .swipeable-page { position: absolute; top:0; left:0; width:100%; height:100%; will-change: transform; transition: transform 0.25s ease-out; }
-    .no-transition { transition: none !important; }
-    .pe-none { pointer-events: none !important; }
+    body, .page-container { 
+      touch-action: pan-y pinch-zoom; 
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-text-size-adjust: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .page-container { 
+      position: relative; 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+    }
+    .swipeable-page { 
+      position: absolute; 
+      top:0; 
+      left:0; 
+      width:100%; 
+      height:100%; 
+      will-change: transform; 
+      transition: transform 0.25s ease-out; 
+    }
+    .no-transition { 
+      transition: none !important; 
+    }
+    .pe-none { 
+      pointer-events: none !important; 
+    }
   `;
+  
   const styleEl = document.createElement("style");
   styleEl.textContent = swipeStyles;
   document.head.appendChild(styleEl);
+
+  // Устанавливаем viewport для запрета масштабирования
+  function setViewport() {
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport) {
+      viewport = document.createElement('meta');
+      viewport.name = 'viewport';
+      document.head.appendChild(viewport);
+    }
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+  }
+
+  setViewport();
 
   function getCurrentPage() {
     const main = document.getElementById("main-page");
@@ -7510,7 +7548,7 @@ document.head.appendChild(swipeStyle);
       setTimeout(clearAfterSuccess, ANIM_MS + 20);
     } else {
       activePage.style.transform = "translateX(0)";
-      nextPage.style.transform = (swipeDirection === "right") ? "translateX(-100%)" : `translateX(${window.innerWidth}px)`;
+      nextPage.style.transform = (swipeDirection === "right") ? "translateX(-100%)" : "translateX(100%)";
       setTimeout(clearAfterCancel, ANIM_MS + 20);
     }
   }
@@ -7528,9 +7566,9 @@ document.head.appendChild(swipeStyle);
       return;
     }
 
-    // Telegram WebApp Android: микро-анимация для свайпа вправо
+    // Для Android: микро-анимация для свайпа вправо
     if (/android/i.test(navigator.userAgent) && startX < EDGE_OFFSET) {
-      startX = EDGE_OFFSET; // сдвиг стартовой точки внутрь
+      startX = EDGE_OFFSET;
       const page = getCurrentPage();
       page.classList.add("no-transition");
       page.style.transform = `translateX(${MICRO_OFFSET}px)`;
@@ -7548,18 +7586,32 @@ document.head.appendChild(swipeStyle);
     let dx = x - startX;
     const dy = y - startY;
 
-    if (!horizontalDetected && Math.abs(dx) > Math.abs(dy)) horizontalDetected = true;
-    if (horizontalDetected && e.cancelable) e.preventDefault();
+    if (!horizontalDetected && Math.abs(dx) > Math.abs(dy)) {
+      horizontalDetected = true;
+    }
+    
+    if (horizontalDetected && e.cancelable) {
+      e.preventDefault();
+    }
 
     if (Math.abs(dx) < SWIPE_THRESHOLD) return;
 
     swipeDirection = dx > 0 ? "right" : "left";
 
     if (!nextPage) prepareNextPage(swipeDirection);
-    if (!nextPage) { isSwiping = false; return; }
+    if (!nextPage) { 
+      isSwiping = false; 
+      return; 
+    }
 
     activePage.style.transform = `translateX(${dx}px)`;
-    nextPage.style.transform = (swipeDirection === "right") ? `translateX(${dx - window.innerWidth}px)` : `translateX(${dx + window.innerWidth}px)`;
+    
+    // Исправленная строка для правильного расчета позиции следующей страницы
+    if (swipeDirection === "right") {
+      nextPage.style.transform = `translateX(${dx - window.innerWidth}px)`;
+    } else {
+      nextPage.style.transform = `translateX(${dx + window.innerWidth}px)`;
+    }
   }, { passive: false });
 
   document.addEventListener("touchend", (e) => {
@@ -7572,6 +7624,19 @@ document.head.appendChild(swipeStyle);
     const success = Math.abs(dx) > window.innerWidth / 4;
     finishSwipe(success);
   }, { passive: false });
+
+  // Дополнительные обработчики для улучшения работы на Android
+  document.addEventListener('gesturestart', function(e) {
+    e.preventDefault();
+  });
+
+  document.addEventListener('gesturechange', function(e) {
+    e.preventDefault();
+  });
+
+  document.addEventListener('gestureend', function(e) {
+    e.preventDefault();
+  });
 
 })();
 </script>
