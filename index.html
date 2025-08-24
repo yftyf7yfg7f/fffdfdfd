@@ -7810,6 +7810,86 @@ document.head.appendChild(swipeStyle);
 })();
 </script>
 
+<script>
+// Функция для управления возможностью закрытия
+function manageClosingBehavior() {
+  if (!window.Telegram?.WebApp) return;
+  
+  // Проверяем, активна ли главная страница
+  const isMainPageActive = document.getElementById('main-page')?.style.display !== 'none';
+  
+  if (isMainPageActive) {
+    // На главной - разрешаем стандартное закрытие
+    Telegram.WebApp.enableClosingConfirmation();
+  } else {
+    // На всех других страницах - запрещаем закрытие
+    Telegram.WebApp.disableClosingConfirmation();
+    
+    // Дополнительная защита - перехватываем touch события
+    preventPullToClose();
+  }
+}
 
+// Функция для предотвращения свайпа вниз
+function preventPullToClose() {
+  let startY = 0;
+  
+  document.addEventListener('touchstart', function(e) {
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  
+  document.addEventListener('touchmove', function(e) {
+    if (document.getElementById('main-page')?.style.display === 'none') {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY;
+      
+      // Если пытаются свайпнуть вниз с верхней части экрана - предотвращаем
+      if (startY < 50 && deltaY > 30 && e.cancelable) {
+        e.preventDefault();
+      }
+    }
+  }, { passive: false });
+}
+
+// Обновляем состояние при изменении страниц
+function updateClosingBehavior() {
+  setTimeout(manageClosingBehavior, 10);
+}
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', function() {
+  // Наблюдаем за изменениями страниц
+  const observer = new MutationObserver(updateClosingBehavior);
+  
+  const pagesToWatch = [
+    'main-page', 'cabinet-page', 'treasure-page', 'storage-page',
+    'payment-page', 'expenses-page', 'profile-page', 'reviews-page'
+  ];
+  
+  pagesToWatch.forEach(pageId => {
+    const page = document.getElementById(pageId);
+    if (page) {
+      observer.observe(page, { 
+        attributes: true, 
+        attributeFilter: ['style', 'class'] 
+      });
+    }
+  });
+  
+  // Первоначальная настройка
+  manageClosingBehavior();
+  preventPullToClose();
+});
+
+// Перехватываем функцию showPage чтобы обновлять поведение
+const originalShowPage = window.showPage;
+if (originalShowPage) {
+  window.showPage = function(pageElement) {
+    originalShowPage.apply(this, arguments);
+    setTimeout(manageClosingBehavior, 10);
+  };
+}
+</script>
+  
 </body>
 </html>
