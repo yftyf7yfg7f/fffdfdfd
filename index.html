@@ -7809,6 +7809,129 @@ document.head.appendChild(swipeStyle);
 
 })();
 </script>
+
+<script>
+// Функция для управления кнопкой "Назад" в Telegram
+function manageBackButton() {
+  if (!window.Telegram?.WebApp?.BackButton) return;
+  
+  // Страницы, где запрещено сворачивание (показываем кнопку Назад)
+  const NO_COLLAPSE_PAGES = [
+    'cabinet-page',    // Каюта
+    'treasure-page',   // Клад
+    'storage-page',    // Склад
+    'payment-page',    // Пополнение
+    'expenses-page',   // Расходы
+    'profile-page',    // Управление профилем
+    'reviews-page'     // Отзывы
+  ];
+  
+  // Проверяем, какая страница сейчас активна
+  let currentPage = null;
+  for (const pageId of NO_COLLAPSE_PAGES) {
+    const page = document.getElementById(pageId);
+    if (page && page.style.display !== 'none') {
+      currentPage = pageId;
+      break;
+    }
+  }
+  
+  // Если на главной странице - скрываем кнопку Назад (разрешаем сворачивание)
+  if (document.getElementById('main-page')?.style.display !== 'none') {
+    Telegram.WebApp.BackButton.hide();
+  } 
+  // Если на одной из страниц где запрещено сворачивание - показываем кнопку Назад
+  else if (currentPage) {
+    Telegram.WebApp.BackButton.show();
+  }
+  // Для любых других страниц (если есть) - скрываем кнопку
+  else {
+    Telegram.WebApp.BackButton.hide();
+  }
+}
+
+// Обновляем состояние кнопки Назад при изменении страниц
+function updateBackButtonState() {
+  setTimeout(manageBackButton, 50); // Небольшая задержка для гарантии что DOM обновился
+}
+
+// Монтируем обработчики на все элементы навигации
+document.addEventListener('DOMContentLoaded', function() {
+  // Наблюдаем за изменениями в DOM чтобы отслеживать переключение страниц
+  const observer = new MutationObserver(updateBackButtonState);
+  
+  // Начинаем наблюдение за изменениями атрибутов style у основных страниц
+  const pagesToObserve = [
+    document.getElementById('main-page'),
+    document.getElementById('cabinet-page'),
+    document.getElementById('treasure-page'),
+    document.getElementById('storage-page'),
+    document.getElementById('payment-page'),
+    document.getElementById('expenses-page'),
+    document.getElementById('profile-page'),
+    document.getElementById('reviews-page')
+  ].filter(Boolean);
+  
+  pagesToObserve.forEach(page => {
+    observer.observe(page, { 
+      attributes: true, 
+      attributeFilter: ['style'] 
+    });
+  });
+  
+  // Инициализируем состояние кнопки при загрузке
+  manageBackButton();
+});
+
+// Обновляем обработчик кнопки Назад чтобы он корректно работал с нашими страницами
+function handleBackButton() {
+  const pages = [
+    'main-page', 'cabinet-page', 'treasure-page', 'storage-page', 
+    'payment-page', 'expenses-page', 'profile-page', 'reviews-page'
+  ];
+  
+  // Определяем, какая страница сейчас активна
+  let currentPage = null;
+  for (const pageId of pages) {
+    const page = document.getElementById(pageId);
+    if (page && page.style.display !== 'none') {
+      currentPage = pageId;
+      break;
+    }
+  }
+  
+  // Логика возврата в зависимости от текущей страницы
+  switch(currentPage) {
+    case 'cabinet-page':
+    case 'treasure-page':
+    case 'storage-page':
+      showPage(document.getElementById('main-page'));
+      break;
+    case 'payment-page':
+      hidePaymentPage();
+      break;
+    case 'expenses-page':
+      hideExpensesPage();
+      break;
+    case 'profile-page':
+      hideProfilePage();
+      break;
+    case 'reviews-page':
+      hideReviewsPage();
+      break;
+    default:
+      // Если на главной странице, закрываем приложение
+      if (window.Telegram?.WebApp?.close) {
+        Telegram.WebApp.close();
+      }
+  }
+}
+
+// Обновляем существующий обработчик если он есть
+if (window.Telegram?.WebApp?.BackButton) {
+  Telegram.WebApp.BackButton.onClick(handleBackButton);
+}
+</script>
   
 </body>
 </html>
