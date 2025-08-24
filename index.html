@@ -7641,6 +7641,174 @@ document.head.appendChild(swipeStyle);
 })();
 </script>
 
+  <script>
+// Новая система свайпов для возврата в каюту
+(function() {
+  const SWIPE_THRESHOLD = 24;
+  const ANIM_MS = 250;
+  
+  let startX = 0, startY = 0;
+  let isSwiping = false;
+  let activePage = null;
+  let horizontalDetected = false;
+
+  // Страницы, с которых можно вернуться в каюту свайпом вправо
+  const PAGES_WITH_BACK_SWIPE = [
+    'payment-page',     // Пополнение
+    'expenses-page',    // Расходы
+    'reviews-page',     // Отзывы
+    'profile-page'      // Управление профилем
+  ];
+
+  // Функция для проверки, находится ли пользователь на странице с поддержкой свайпа назад
+  function isOnBackSwipePage() {
+    for (const pageId of PAGES_WITH_BACK_SWIPE) {
+      const page = document.getElementById(pageId);
+      if (page && page.style.display !== 'none') {
+        return page;
+      }
+    }
+    return null;
+  }
+
+  // Функция для возврата в каюту
+  function goBackToCabinet() {
+    const currentPage = isOnBackSwipePage();
+    if (!currentPage) return;
+    
+    // Определяем, какая функция скрытия нужна для текущей страницы
+    let hideFunction;
+    
+    switch(currentPage.id) {
+      case 'payment-page':
+        hideFunction = hidePaymentPage;
+        break;
+      case 'expenses-page':
+        hideFunction = hideExpensesPage;
+        break;
+      case 'reviews-page':
+        hideFunction = hideReviewsPage;
+        break;
+      case 'profile-page':
+        hideFunction = hideProfilePage;
+        break;
+    }
+    
+    if (hideFunction) {
+      // Анимация свайпа вправо
+      currentPage.style.transform = 'translateX(100%)';
+      currentPage.style.transition = `transform ${ANIM_MS}ms ease-out`;
+      
+      // Запускаем функцию скрытия после анимации
+      setTimeout(() => {
+        hideFunction();
+        currentPage.style.transform = '';
+        currentPage.style.transition = '';
+      }, ANIM_MS);
+      
+      // Вибрация
+      triggerVibration();
+    }
+  }
+
+  // Обработчики событий для свайпа
+  document.addEventListener("touchstart", function(e) {
+    const swipePage = isOnBackSwipePage();
+    if (!swipePage) return;
+    
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    horizontalDetected = false;
+    isSwiping = true;
+    activePage = swipePage;
+
+    // Не обрабатываем свайпы на интерактивных элементах
+    if (e.target.closest("input, textarea, select, button, a, .no-swipe")) {
+      isSwiping = false;
+      return;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchmove", function(e) {
+    if (!isSwiping || !activePage) return;
+
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    const dx = x - startX;
+    const dy = y - startY;
+
+    // Определяем, горизонтальный ли это свайп
+    if (!horizontalDetected && Math.abs(dx) > Math.abs(dy)) {
+      horizontalDetected = true;
+    }
+    
+    // Если это горизонтальный свайп и движение вправо - предотвращаем скролл
+    if (horizontalDetected && dx > 0 && e.cancelable) {
+      e.preventDefault();
+    }
+
+    // Если это не горизонтальный свайп или движение влево - отменяем обработку
+    if (!horizontalDetected || dx < 0) {
+      return;
+    }
+
+    // Ограничиваем максимальное смещение
+    const maxOffset = window.innerWidth * 0.5;
+    const offset = Math.min(dx, maxOffset);
+    
+    // Применяем смещение к странице
+    activePage.style.transform = `translateX(${offset}px)`;
+    activePage.style.transition = 'none';
+    
+  }, { passive: false });
+
+  document.addEventListener("touchend", function(e) {
+    if (!isSwiping || !activePage) return;
+    isSwiping = false;
+
+    const dx = e.changedTouches[0].clientX - startX;
+    
+    // Если свайп достаточно длинный вправо - возвращаем в каюту
+    if (dx > window.innerWidth / 4) {
+      goBackToCabinet();
+    } else {
+      // Если нет - возвращаем страницу на место
+      activePage.style.transform = '';
+      activePage.style.transition = `transform ${ANIM_MS}ms ease-out`;
+      
+      // Через время убираем transition, чтобы не мешал другим анимациям
+      setTimeout(() => {
+        if (activePage) {
+          activePage.style.transition = '';
+        }
+      }, ANIM_MS);
+    }
+    
+    activePage = null;
+  }, { passive: true });
+
+  // Блокируем жесты масштабирования на этих страницах
+  document.addEventListener('gesturestart', function(e) {
+    if (isOnBackSwipePage()) {
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener('gesturechange', function(e) {
+    if (isOnBackSwipePage()) {
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener('gestureend', function(e) {
+    if (isOnBackSwipePage()) {
+      e.preventDefault();
+    }
+  });
+
+})();
+</script>
   
 </body>
 </html>
